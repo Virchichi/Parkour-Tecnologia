@@ -442,7 +442,7 @@ Animator:
   m_Controller: {fileID: 9100000, guid: f4e728f0c1328054dbee1ef9279f3817, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
-  m_ApplyRootMotion: 0
+  m_ApplyRootMotion: 1
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
@@ -488,8 +488,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 441500f186f90f140ae74e95147e5c47, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  forwardRayOffset: {x: 0, y: 2.5, z: 0}
+  forwardRayOffset: {x: 0, y: 0.4, z: 0}
   forwardRayLenght: 0.8
+  heightRayLenght: 5
   obstacleLayer:
     serializedVersion: 2
     m_Bits: 8

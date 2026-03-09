@@ -16,6 +16,8 @@ public class PlayerControler : MonoBehaviour
 
     bool isGrounded;
 
+    bool hasControl = true;
+
     float ySpeed;
 
     Quaternion targetRotation;
@@ -57,6 +59,8 @@ public class PlayerControler : MonoBehaviour
         //SI LA CAMARA ESTA GIRADA HACIA LA DERECHA,
         //EL PLAYER SE MOVERA HACIA LA DERECHA CUANDO PRESIONES W
         var moveDir = cameraController.PlanarRotation * moveImput;
+        if (!hasControl)
+            return;
 
         GroundCheck();
 
@@ -90,6 +94,17 @@ public class PlayerControler : MonoBehaviour
         isGrounded = Physics.CheckSphere(transform.TransformPoint(groundCheckOffset), groundCheckRadius, groundLayer);
     }
 
+    public void SetControl(bool hasControl)
+    {
+        this.hasControl = hasControl;
+        characterController.enabled = hasControl;
+
+        if (!hasControl)
+        {
+            animator.SetFloat("moveAmount", 0f);
+            targetRotation = transform.rotation;
+        }
+    }
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;
