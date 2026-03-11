@@ -1,9 +1,13 @@
+using NUnit.Framework;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class ParkourControler : MonoBehaviour
 {
+    [SerializeField] List<ParkourAction> parkourActions;
+    
     bool inAction;
 
     EnvironmentScanner environmentScanner;
@@ -39,23 +43,56 @@ public class ParkourControler : MonoBehaviour
 
             if (hitData.forwardHitFound)
             {
-                StartCoroutine(DoParkourAction());
+                foreach (var parkourAction in parkourActions)
+                {
+                    if (parkourAction.CanBePerformed(hitData, transform))
+                    {
+                        StartCoroutine(DoParkourAction(parkourAction));
+                        break;
+                    }
+                }
+                
             }
         }
     }
-    IEnumerator DoParkourAction()
+    IEnumerator DoParkourAction(ParkourAction parkourAction)
     {
         inAction = true;
         playerControler.SetControl(false);
-        animator.CrossFade("StepUp", .2f);
+
+        animator.CrossFade(parkourAction.AnimationName, .2f);
         yield return null;
 
         var animState = animator.GetNextAnimatorStateInfo(0);
+        if (!animState.IsName(parkourAction.AnimationName))
+        {
+            Debug.LogError("Animation not found: " + parkourAction.AnimationName);
+            yield break;
+        }
+        float timer = 0f;
+        while (timer < animState.length)
+        {
+            timer += Time.deltaTime;
 
-        yield return new WaitForSeconds(animState.length);
-        
+            //Rotate the player towards the forward hit normal during the parkour action
+            if (parkourAction.RotateToObstacle)
+            {
+                transform.rotation = Quaternion.RotateTowards(transform.rotation, parkourAction.TargetRotation, playerControler.RotationSpeed * Time.deltaTime);
+            }
+            if(parkourAction.EneableTargetMatching)
+            {
+                MatchTarget(parkourAction);
+            }
+            yield return null;
+        }
+
         playerControler.SetControl(true);
 
         inAction = false;
+    }
+    void MatchTarget(ParkourAction parkourAction)
+    {
+        if(animator.isMatchingTarget) return;
+        animator.MatchTarget(parkourAction.MatchPos, transform.rotation, parkourAction.MatchBodyPart, new MatchTargetWeightMask(new Vector3(0, 1, 0), 0), parkourAction.MatchStartTime, parkourAction.MatchTargetTime);
     }
 }

@@ -506,6 +506,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e82db26c8058234a96f2cc7ebff2ba2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  parkourActions:
+  - {fileID: 11400000, guid: eee23bd4e3e0e9b46840d43f6142e73f, type: 2}
+  - {fileID: 11400000, guid: cdb76143ff8c3844ba2c2ad796bc063d, type: 2}
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0
@@ -745,7 +748,7 @@ Transform:
   m_GameObject: {fileID: 1021568040}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 17.76, y: 1.25, z: 0.6}
+  m_LocalPosition: {x: 17.759998, y: 1.25, z: 0.5999996}
   m_LocalScale: {x: 3, y: 2.5, z: 3}
   m_ConstrainProportionsScale: 0
   m_Children: []
