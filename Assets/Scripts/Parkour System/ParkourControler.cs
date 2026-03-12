@@ -83,8 +83,14 @@ public class ParkourControler : MonoBehaviour
             {
                 MatchTarget(parkourAction);
             }
+
+            if (animator.IsInTransition(0) && timer >= animState.length * parkourAction.MatchTargetTime)
+            {
+                break;
+            }
             yield return null;
         }
+        yield return new WaitForSeconds(parkourAction.PosActionDelay);
 
         playerControler.SetControl(true);
 
@@ -93,6 +99,8 @@ public class ParkourControler : MonoBehaviour
     void MatchTarget(ParkourAction parkourAction)
     {
         if(animator.isMatchingTarget) return;
-        animator.MatchTarget(parkourAction.MatchPos, transform.rotation, parkourAction.MatchBodyPart, new MatchTargetWeightMask(new Vector3(0, 1, 0), 0), parkourAction.MatchStartTime, parkourAction.MatchTargetTime);
+        animator.MatchTarget(parkourAction.MatchPos, transform.rotation, 
+            parkourAction.MatchBodyPart, new MatchTargetWeightMask(parkourAction.MatchPosWeigth, 0), 
+            parkourAction.MatchStartTime, parkourAction.MatchTargetTime);
     }
 }
