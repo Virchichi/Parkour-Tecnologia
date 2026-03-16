@@ -14,6 +14,9 @@ public class ParkourAction : ScriptableObject
     [SerializeField] bool rotateToObstacle;
     [SerializeField] float posActionDelay;
 
+    [SerializeField] bool isRuningAction;
+    [SerializeField] bool isInAir;
+
     [Header("Target Matching")]
     [SerializeField] bool eneableTargetMatching = true;
     [SerializeField] AvatarTarget matchBodyPart;
@@ -27,16 +30,26 @@ public class ParkourAction : ScriptableObject
     {
         // Check if the forward raycast hit an obstacle and the height raycast hit a valid point
         if (!string.IsNullOrEmpty(obstacleTag) && hitData.forwardHit.transform.tag != obstacleTag)
+        {
+            GlobalControlerData.canPerformParkour = false;
             return false;
+        }
+            
 
         // Check if the height of the obstacle is within the specified range
         float height = hitData.heightHit.point.y - player.position.y;
         if(height < minHeight || height > maxHeight)
+        {
+            GlobalControlerData.canPerformParkour = false;
             return false;
-        if(rotateToObstacle)
+        }
+
+        if (rotateToObstacle)
             TargetRotation = Quaternion.LookRotation(hitData.forwardHit.normal * -1);
         if(eneableTargetMatching)
             MatchPos = hitData.heightHit.point;
+
+        GlobalControlerData.canPerformParkour = true;
         return true;
     }
 

@@ -8,7 +8,7 @@ public class ParkourControler : MonoBehaviour
 {
     [SerializeField] List<ParkourAction> parkourActions;
     
-    bool inAction;
+    //bool inAction;
 
     EnvironmentScanner environmentScanner;
 
@@ -37,27 +37,25 @@ public class ParkourControler : MonoBehaviour
     }
     private void Update()
     {
-        if (inputActions.Player.Jump.IsPressed() && !inAction)
-        {
-            var hitData = environmentScanner.ObstacleCheck();
+        var hitData = environmentScanner.ObstacleCheck();
 
-            if (hitData.forwardHitFound)
+        if (hitData.forwardHitFound)
+        {
+            foreach (var parkourAction in parkourActions)
             {
-                foreach (var parkourAction in parkourActions)
+                if (parkourAction.CanBePerformed(hitData, transform) && inputActions.Player.Jump.IsPressed() && !GlobalControlerData.inAction)
                 {
-                    if (parkourAction.CanBePerformed(hitData, transform))
-                    {
-                        StartCoroutine(DoParkourAction(parkourAction));
-                        break;
-                    }
+                    //playerControler.parkourEnable = true;
+                    StartCoroutine(DoParkourAction(parkourAction));
+                    break;
                 }
-                
             }
+
         }
     }
     IEnumerator DoParkourAction(ParkourAction parkourAction)
     {
-        inAction = true;
+        GlobalControlerData.inAction = true;
         playerControler.SetControl(false);
 
         animator.CrossFade(parkourAction.AnimationName, .2f);
@@ -94,7 +92,8 @@ public class ParkourControler : MonoBehaviour
 
         playerControler.SetControl(true);
 
-        inAction = false;
+        //playerControler.parkourEnable = false; 
+        GlobalControlerData.inAction = false;
     }
     void MatchTarget(ParkourAction parkourAction)
     {
