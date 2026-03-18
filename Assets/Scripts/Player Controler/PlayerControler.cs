@@ -21,14 +21,38 @@ public class PlayerControler : MonoBehaviour
     [SerializeField] Vector3 groundCheckOffset;
     [SerializeField] LayerMask groundLayer;
 
+    [Header("Wall Run")]
+    [SerializeField] float wallRunSpeed = 6f;
+    [SerializeField] float wallRunGravity = -2f;
+    [SerializeField] float wallJumpForce = 7f;
+
+    bool isWallRunning;
+    Vector3 wallNormal;
+
+    [Header("Slide")]
+    [SerializeField] float slideSpeed = 8f;
+    [SerializeField] float slideDuration = 1f;
+
+    [Header("Slide Collider")]
+    [SerializeField] float slideHeight = 1f;
+    [SerializeField] float normalHeight = 2f;
+
+    Vector3 normalCenter;
+    Vector3 slideCenter;
+
+    bool isSliding;
+
+    float moveAmount;
+
     bool isGrounded;
-    bool isJumping;
 
     bool hasControl = true;
 
     float ySpeed;
 
     Quaternion targetRotation;
+
+    //Gameobject
 
     private InputSystem_Actions inputActions;
 
@@ -57,43 +81,49 @@ public class PlayerControler : MonoBehaviour
         animator = GetComponent<Animator>();
         characterController = GetComponent<CharacterController>();
         environmentScanner = GetComponent<EnvironmentScanner>();
+
+        normalHeight = characterController.height;
+        normalCenter = characterController.center;
+
+        // Centro más bajo para el slide
+        slideCenter = new Vector3(normalCenter.x, slideHeight / 2f, normalCenter.z);
     }
 
 
 
     private void Update()
     {
-        Vector2 move = inputActions.Player.Move.ReadValue<Vector2>();
+        var hitData = environmentScanner.ObstacleCheck();
+        // WALL RUN
+        WallRunning(hitData);
+        cameraController.SetTilt(isWallRunning && hitData.rightHitFound,isWallRunning && hitData.leftHitFound
+);
 
-        float moveAmount = Mathf.Clamp01(Mathf.Abs(move.x) + Mathf.Abs(move.y)); //for Animator imput
+        // SLIDE INPUT
+        if (inputActions.Player.Crouch.WasPressedThisFrame() && moveAmount > 0.5f && isGrounded && !isSliding)
+        {
+            StartCoroutine(Slide());
+        }
 
-        var moveImput = (new Vector3(move.x, 0, move.y)).normalized;
-
+        GroundCheck();
+        GravityCheck();
+       
         //TE DA LA DIRECCION EN EL PLANO HORIZONTAL DE LA CAMARA,
         //PARA QUE EL PLAYER SE MUEVA EN ESA DIRECCION, ES DECIR,
         //SI LA CAMARA ESTA GIRADA HACIA LA DERECHA,
         //EL PLAYER SE MOVERA HACIA LA DERECHA CUANDO PRESIONES W
 
-        var moveDir = cameraController.PlanarRotation * moveImput;
+        var moveDir = cameraController.PlanarRotation * Movement();
 
-        if (!hasControl)
+        if (!hasControl || isSliding)
             return;
 
-        var hitData = environmentScanner.ObstacleCheck();
+        cameraController.SetFOVState(inputActions.Player.Sprint.IsPressed() && moveAmount > 0.1f,isWallRunning);
 
-        GroundCheck();
-
-        GravityCheck();
-
-        if (inputActions.Player.Jump.WasPressedThisFrame() && !GlobalControlerData.canPerformParkour && !isJumping)
+        if (inputActions.Player.Jump.WasPressedThisFrame() && !GlobalControlerData.canPerformParkour)
         {
             moveDir = JumpAction(hitData);
-            Debug.Log("ySpeed" + ySpeed);
         }
-
-
-
-
         if (inputActions.Player.Sprint.IsPressed())
         {
             moveAmount += 0.5f;
@@ -103,34 +133,31 @@ public class PlayerControler : MonoBehaviour
         {
             currentSpeed = moveSpeed;
         }
-        if(ySpeed > 0)
-            Debug.Log("ySpeed 2º segunda vez" + ySpeed);
+
         var velocity = moveDir * currentSpeed;
         velocity.y = ySpeed;
-        
-        //Debug.Log("Velocity" + velocity.y);
-        //if(velocity.y > 0) {
-        //    animator.CrossFade("isJumping", .2f);
-        //}
-        //else if (isGrounded)
-        //{
-        //    animator.SetBool("isJumping", false);
-        //}
-        //Debug.Log("MoveDir: " + moveDir + " Velocity: " + velocity.y);
+
         characterController.Move(velocity * Time.deltaTime);
 
-        if (ySpeed > 0)
-            Debug.Log("ySpeed 3º segunda vez" + velocity.y);
         if (moveAmount > 0)
         {
             targetRotation = Quaternion.LookRotation(moveDir);
         }
 
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, 
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation,
             rotationSpeed * Time.deltaTime);
 
         animator.SetFloat("moveAmount", moveAmount, 0.2f, Time.deltaTime);
     }
+     Vector3 Movement()
+     {
+        Vector2 move = inputActions.Player.Move.ReadValue<Vector2>();
+
+        moveAmount = Mathf.Clamp01(Mathf.Abs(move.x) + Mathf.Abs(move.y)); //for Animator imput
+
+        var moveImput = (new Vector3(move.x, 0, move.y)).normalized;
+        return moveImput;
+     }
     void GroundCheck()
     {
         isGrounded = Physics.CheckSphere(transform.TransformPoint(groundCheckOffset), groundCheckRadius, groundLayer);
@@ -149,9 +176,22 @@ public class PlayerControler : MonoBehaviour
     }
     public Vector3 JumpAction(ObstacleHitData hitData)
     {
-        isJumping = true;
-        Vector3 jumpDir = new Vector3();
-        if (!isGrounded)
+        Vector3 jumpDir = Vector3.zero;
+        // WallRuning Jump
+        if (isWallRunning)
+        {
+            isWallRunning = false;
+
+            Vector3 dir = wallNormal + Vector3.up;
+            jumpDir = dir.normalized;
+
+            ySpeed = wallJumpForce;
+
+            //StartCoroutine(DoAnimationAction("WallJump", true));
+
+            return jumpDir;
+        }
+        else if (!isGrounded)
         {
             if (hitData.forwardHitFound)
             {
@@ -173,35 +213,86 @@ public class PlayerControler : MonoBehaviour
             }
         }
         else
-        {
+        { 
             ySpeed = jumpSpeed;
-            Debug.Log("ySpeed" + ySpeed + "JumpSpeed" + jumpSpeed );
             StartCoroutine(DoAnimationAction("Jump", false));
         }
-        isJumping = false;
+
         return jumpDir;
     }
-    void WallRuning(ObstacleHitData hitData)
+    void WallRunning(ObstacleHitData hitData)
     {
-        if (!isGrounded && environmentScanner.WallRunCheck(hitData))
+        if (!isGrounded && environmentScanner.WallRunCheck(hitData) && moveAmount > 0.1f)
         {
-           if (hitData.rightHitFound)
-           {
-                //Wallrun a la derecha
-           }
-           else if (hitData.leftHitFound)
-           {
-                //Wallrun a la izquierda
-           }
+            isWallRunning = true;
+
+            if (hitData.rightHitFound)
+            {
+                wallNormal = hitData.rightHit.normal;
+            }
+            else if (hitData.leftHitFound)
+            {
+                wallNormal = hitData.leftHit.normal;
+            }
+
+            // Dirección del wallrun (paralela a la pared)
+            Vector3 wallForward = Vector3.Cross(wallNormal, Vector3.up);
+
+            // Ajustar dirección para que siga hacia adelante
+            if (Vector3.Dot(wallForward, transform.forward) < 0)
+                wallForward = -wallForward;
+
+            ySpeed = wallRunGravity;
+
+            Vector3 velocity = wallForward * wallRunSpeed;
+            velocity.y = ySpeed;
+
+            characterController.Move(velocity * Time.deltaTime);
+
+            // Rotación hacia dirección del wallrun
+            targetRotation = Quaternion.LookRotation(wallForward);
         }
+        else
+        {
+            isWallRunning = false;
+        }
+    }
+    IEnumerator Slide()
+    {
+        isSliding = true;
+
+        //Reducir collider
+        characterController.height = slideHeight;
+        characterController.center = slideCenter;
+
+        float timer = 0f;
+
+        while (timer < slideDuration)
+        {
+            timer += Time.deltaTime;
+
+            Vector3 slideDir = transform.forward;
+            Vector3 velocity = slideDir * slideSpeed;
+            velocity.y = ySpeed;
+
+            characterController.Move(velocity * Time.deltaTime);
+
+            yield return null;
+        }
+
+        //Restaurar collider
+        characterController.height = normalHeight;
+        characterController.center = normalCenter;
+
+        isSliding = false;
     }
     void GravityCheck()
     {
-        if (isGrounded)
+        if (isGrounded && ySpeed < 0)
         {
-            ySpeed = -0.5f; // Para que el personaje se mantenga pegado al suelo, si es 0 puede haber problemas de colision con el suelo 
+            ySpeed = -2f;
         }
-        else if(!isJumping)
+        else if (!isWallRunning)
         {
             ySpeed += Physics.gravity.y * Time.deltaTime;
         }
