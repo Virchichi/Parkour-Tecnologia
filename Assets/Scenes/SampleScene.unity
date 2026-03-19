@@ -860,8 +860,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e80a43cee31ebdc4d912848b7e31d630, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 0
-  runSpeed: 0
+  moveSpeed: 5
+  runSpeed: 8
   jumpSpeed: 5
   rotationSpeed: 500
   fallingHeight: 5
@@ -1842,7 +1842,7 @@ GameObject:
   - component: {fileID: 1242615257}
   - component: {fileID: 1242615256}
   - component: {fileID: 1242615255}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Cube
   m_TagString: Untagged
   m_Icon: {fileID: 0}

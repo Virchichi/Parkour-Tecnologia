@@ -61,6 +61,7 @@ public class PlayerControler : MonoBehaviour
 
     public bool JumpPressed() => inputActions.Player.Jump.WasPressedThisFrame();
     public bool SprintPressed() => inputActions.Player.Sprint.IsPressed();
+    public bool SlidePressed() => inputActions.Player.Crouch.WasPressedThisFrame();
 
     private void OnEnable()
     {
@@ -87,14 +88,16 @@ public class PlayerControler : MonoBehaviour
     private void Update()
     {
         GroundCheck();
-        
         stateMachine.Update();
         UpdateSpeed();
     }
     public void UpdateSpeed()
     {
         if (SprintPressed())
+        {
             currentSpeed = runSpeed;
+            moveAmount += 0.5f;
+        }
         else
             currentSpeed = moveSpeed;
     }
@@ -135,7 +138,7 @@ public class PlayerControler : MonoBehaviour
 
         characterController.Move(velocity * Time.deltaTime);
 
-        if (moveAmount > 0)
+        if (moveAmount > 0)//Poner una variable de control para que no gire cuando esta saltando o cayendo
         {
             targetRotation = Quaternion.LookRotation(dir);
             transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);

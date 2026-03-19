@@ -1,5 +1,3 @@
-using NUnit.Framework.Interfaces;
-using Unity.IO.LowLevel.Unsafe;
 using UnityEngine;
 
 public abstract class PlayerState
@@ -96,18 +94,19 @@ public class RunState : PlayerState
     public override void Update()
     {
         player.ApplyGravity();
-
-        var moveDir = player.GetMoveDirection();
-        player.Move(moveDir);
+        player.Move(player.GetMoveDirection());
+        player.UpdateSpeed();
 
         if (player.MoveAmount <= 1f)
-            player.stateMachine.ChangeState(new IdleState(player));
+            player.stateMachine.ChangeState(new WalkState(player));
 
         if (!player.IsGrounded())
             player.stateMachine.ChangeState(new FallState(player));
 
         if (player.JumpPressed())
             player.stateMachine.ChangeState(new JumpState(player));
+        if(player.SlidePressed())
+            player.stateMachine.ChangeState(new SlideState(player));
     }
 }
 public class JumpState : PlayerState
@@ -116,14 +115,16 @@ public class JumpState : PlayerState
 
     public override void Enter()
     {
+        // Establecer velocidad vertical para el salto
         player.SetYSpeed(player.JumpForce);
-        //player.Animator.CrossFade("Jump", 0.1f);
+        player.Animator.CrossFade("Jump", 0.1f);
     }
 
     public override void Update()
     {
         player.ApplyGravity();
-        player.Move(player.Movement());
+
+        player.Move(player.GetMoveDirection());
 
         if (player.GetComponent<EnvironmentScanner>().WallRunCheck(
             player.GetComponent<EnvironmentScanner>().ObstacleCheck()))
@@ -212,11 +213,13 @@ public class SlideState : PlayerState
 public class ParkourState : PlayerState
 {
     ParkourAction action;
+    ParkourControler parkour;
     float timer;
 
-    public ParkourState(PlayerControler player, ParkourAction action) : base(player)
+    public ParkourState(PlayerControler player, ParkourAction action, ParkourControler parkour) : base(player)
     {
         this.action = action;
+        this.parkour = parkour;
     }
 
     public override void Enter()
@@ -228,18 +231,34 @@ public class ParkourState : PlayerState
 
     public override void Update()
     {
+        // Actualizar por frame (no usar yield en un método void)
+        var animState = player.Animator.GetCurrentAnimatorStateInfo(0);
         timer += Time.deltaTime;
 
-        if (action.RotateToObstacle)
+        // Si la animación actual no es la esperada y no estamos en transición -> error y volver a Idle
+        if (!animState.IsName(action.AnimationName) && !player.Animator.IsInTransition(0))
         {
-            player.transform.rotation = Quaternion.RotateTowards(
-                player.transform.rotation,
-                action.TargetRotation,
-                player.RotationSpeed * Time.deltaTime
-            );
+            Debug.LogError("Animation not found: " + action.AnimationName);
+            player.SetControl(true);
+            player.stateMachine.ChangeState(new IdleState(player));
+            return;
         }
 
-        if (timer >= 1f) // simplificado
+        // Rotar hacia objetivo si procede
+        if (action.RotateToObstacle)
+        {
+            player.transform.rotation = Quaternion.RotateTowards(player.transform.rotation, action.TargetRotation, player.RotationSpeed * Time.deltaTime);
+        }
+
+        // Match target si está habilitado
+        if (action.EneableTargetMatching && parkour != null)
+        {
+            parkour.MatchTarget(action);
+        }
+
+        // Si ha acabado la animación, restaurar control y volver a Idle
+        // Nota: animState.length puede ser 0 en algunos casos; este es el comportamiento original simplificado
+        if (animState.length > 0f && timer >= animState.length)
         {
             player.SetControl(true);
             player.stateMachine.ChangeState(new IdleState(player));

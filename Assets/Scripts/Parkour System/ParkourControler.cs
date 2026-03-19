@@ -46,7 +46,7 @@ public class ParkourControler : MonoBehaviour
                 if (parkourAction.CanBePerformed(hitData, transform) && inputActions.Player.Jump.IsPressed() && !GlobalControlerData.inAction)
                 {
                     //playerControler.parkourEnable = true;
-                    playerControler.stateMachine.ChangeState(new ParkourState(playerControler, parkourAction));
+                    playerControler.stateMachine.ChangeState(new ParkourState(playerControler, parkourAction, this));
                     break;
                 }
             }
@@ -95,7 +95,7 @@ public class ParkourControler : MonoBehaviour
         //playerControler.parkourEnable = false; 
         GlobalControlerData.inAction = false;
     }
-    void MatchTarget(ParkourAction parkourAction)
+    public void MatchTarget(ParkourAction parkourAction)
     {
         if(animator.isMatchingTarget) return;
         animator.MatchTarget(parkourAction.MatchPos, transform.rotation, 
