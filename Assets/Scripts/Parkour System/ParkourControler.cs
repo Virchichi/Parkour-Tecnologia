@@ -46,7 +46,7 @@ public class ParkourControler : MonoBehaviour
                 if (parkourAction.CanBePerformed(hitData, transform) && inputActions.Player.Jump.IsPressed() && !GlobalControlerData.inAction)
                 {
                     //playerControler.parkourEnable = true;
-                    StartCoroutine(DoParkourAction(parkourAction));
+                    playerControler.stateMachine.ChangeState(new ParkourState(playerControler, parkourAction));
                     break;
                 }
             }
