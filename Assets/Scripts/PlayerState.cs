@@ -117,7 +117,11 @@ public class JumpState : PlayerState
     {
         // Establecer velocidad vertical para el salto
         player.SetYSpeed(player.JumpForce);
-        player.Animator.CrossFade("Jump", 0.1f);
+        if(player.MoveAmount<0.1f)
+            player.Animator.CrossFade("IdleJump", 0.1f);
+        else
+            player.Animator.CrossFade("Jump", 0.1f);
+
     }
 
     public override void Update()
@@ -126,13 +130,16 @@ public class JumpState : PlayerState
 
         player.Move(player.GetMoveDirection());
 
+        //Hacer una combrobacion de la altura del character controler con respecto a la animacion 
+
         if (player.GetComponent<EnvironmentScanner>().WallRunCheck(
             player.GetComponent<EnvironmentScanner>().ObstacleCheck()))
         {
-            player.stateMachine.ChangeState(new WallRunState(player));
+           // player.stateMachine.ChangeState(new WallRunState(player));
         }
 
-        if (player.IsGrounded())
+        // Evitar volver a Idle inmediatamente si seguimos con velocidad vertical positiva
+        if (player.IsGrounded() && player.YSpeed <= 0f)
             player.stateMachine.ChangeState(new IdleState(player));
     }
 }
@@ -148,7 +155,7 @@ public class FallState : PlayerState
     public override void Update()
     {
         player.ApplyGravity();
-        player.Move(player.Movement());
+        player.Move(player.GetMoveDirection());
 
         if (player.IsGrounded())
             player.stateMachine.ChangeState(new IdleState(player));
@@ -196,7 +203,7 @@ public class SlideState : PlayerState
 
     public override void Enter()
     {
-        //player.Animator.CrossFade("Slide", 0.1f);
+        player.Animator.CrossFade("Slide", 0.1f);
         timer = 1f;
     }
 
@@ -205,9 +212,16 @@ public class SlideState : PlayerState
         timer -= Time.deltaTime;
 
         player.Move(player.transform.forward);
+        player.CharacterController.height = player.SlideHeight;
+        player.CharacterController.center = player.SlideCenter;
 
         if (timer <= 0)
+        {
+            player.CharacterController.height = player.NormalHeight;
+            player.CharacterController.center= player.NormalCenter;
             player.stateMachine.ChangeState(new IdleState(player));
+        }
+
     }
 }
 public class ParkourState : PlayerState

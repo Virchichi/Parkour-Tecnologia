@@ -30,6 +30,9 @@ public class PlayerControler : MonoBehaviour
     [SerializeField] float slideHeight = 1f;
     [SerializeField] float normalHeight = 2f;
 
+    Vector3 normalCenter;
+    Vector3 slideCenter;
+
     float moveAmount;
 
     bool isGrounded;
@@ -50,14 +53,26 @@ public class PlayerControler : MonoBehaviour
 
     CharacterController characterController;
 
+    public CharacterController CharacterController => characterController;
+
     public PlayerStateMachine stateMachine;
 
     public Animator Animator => animator;
+
+    public float SlideHeight => slideHeight;
+    public float NormalHeight => normalHeight;
+
+    public Vector3 SlideCenter => slideCenter;
+
+    public Vector3 NormalCenter => normalCenter;
     public float MoveAmount => moveAmount;
     public float JumpForce => jumpSpeed;
 
     public float RotationSpeed => rotationSpeed;
     public bool IsGrounded() => isGrounded;
+
+    // Nuevo getter público para la velocidad vertical (usado por estados para decidir transiciones)
+    public float YSpeed => ySpeed;
 
     public bool JumpPressed() => inputActions.Player.Jump.WasPressedThisFrame();
     public bool SprintPressed() => inputActions.Player.Sprint.IsPressed();
@@ -80,6 +95,11 @@ public class PlayerControler : MonoBehaviour
         characterController = GetComponent<CharacterController>();
 
         stateMachine = new PlayerStateMachine();
+
+        normalHeight = characterController.height;
+        normalCenter = characterController.center;
+
+        slideCenter = new Vector3(normalCenter.x, slideHeight / 2f, normalCenter.z);
     }
     private void Start()
     {
