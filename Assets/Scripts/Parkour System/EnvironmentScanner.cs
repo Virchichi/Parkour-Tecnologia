@@ -32,9 +32,7 @@ public class EnvironmentScanner : MonoBehaviour
                 out hitData.heightHit, heightRayLenght, obstacleLayer);
 
             Debug.DrawRay(heightOrigin, Vector3.down * heightRayLenght, hitData.heightHitFound ? Color.red : Color.green);
-
         }
-
         return hitData;
     }
     public bool WallRunCheck(ObstacleHitData hitData)

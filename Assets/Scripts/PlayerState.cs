@@ -11,7 +11,7 @@ public abstract class PlayerState
 
     public virtual void Enter() { }
     public virtual void Update() { }
-    public virtual void Exit() { }
+    public virtual void Exit() { } 
 }
 public class PlayerStateMachine
 {
@@ -115,32 +115,53 @@ public class JumpState : PlayerState
 
     public override void Enter()
     {
-        // Establecer velocidad vertical para el salto
-        player.SetYSpeed(player.JumpForce);
-        if(player.MoveAmount<0.1f)
-            player.Animator.CrossFade("IdleJump", 0.1f);
+        // Si hemos hecho un wall-jump recientemente, NO sobrescribimos la velocidad vertical
+        if (player.RecentWallJump())
+        {
+            Debug.Log("JumpState.Enter: recent wall jump detected, no override of ySpeed");
+        }
         else
-            player.Animator.CrossFade("Jump", 0.1f);
+        {
+            // Si venimos en wallrun y no hubo reciente wall-jump, aplicar wall-jump special
+            if (player.IsWallRunning())
+            {
+                player.SetYSpeed(player.WallJumpForce);
+            }
+            else
+            {
+                player.SetYSpeed(player.JumpForce);
+            }
+        }
 
+        player.Animator.CrossFade("Jump", 0.1f);
     }
 
     public override void Update()
     {
         player.ApplyGravity();
-
         player.Move(player.GetMoveDirection());
 
-        //Hacer una combrobacion de la altura del character controler con respecto a la animacion 
+        // Log para depuración: ver por frame si estamos en suelo / ySpeed / recent flag
+        Debug.Log($"JumpState: IsGrounded={player.IsGrounded()} YSpeed={player.YSpeed} RecentWallJump={player.RecentWallJump()} MoveAmount={player.MoveAmount}");
 
-        if (player.GetComponent<EnvironmentScanner>().WallRunCheck(
-            player.GetComponent<EnvironmentScanner>().ObstacleCheck()))
+        // 1) Primero prioridad a aterrizar: si estás en suelo y ya no subes, ir a Idle
+        if (player.IsGrounded() && player.YSpeed <= 0f)
         {
-           // player.stateMachine.ChangeState(new WallRunState(player));
+            player.stateMachine.ChangeState(new IdleState(player));
+            return;
         }
 
-        // Evitar volver a Idle inmediatamente si seguimos con velocidad vertical positiva
-        if (player.IsGrounded() && player.YSpeed <= 0f)
-            player.stateMachine.ChangeState(new IdleState(player));
+        // 2) Sólo si no estamos en suelo y no acabamos de wall-jumpear, intentar wallrun.
+        //    Añadimos comprobación explícita !IsGrounded() para seguridad.
+        if (!player.RecentWallJump()
+            && !player.IsGrounded()
+            && player.GetComponent<EnvironmentScanner>().WallRunCheck(player.GetComponent<EnvironmentScanner>().ObstacleCheck())
+            && player.CanStartWallRun())
+        {
+            Debug.Log("Wall Run Available from JumpState");
+            player.stateMachine.ChangeState(new WallRunState(player));
+            return;
+        }
     }
 }
 public class FallState : PlayerState
@@ -163,15 +184,17 @@ public class FallState : PlayerState
 }
 public class WallRunState : PlayerState
 {
+    bool wallRight;
+    bool wallLeft;
+    Vector3 wallNormal;
+    Vector3 wallForward;
+
     public WallRunState(PlayerControler player) : base(player) { }
 
     public override void Enter()
     {
-        //player.Animator.CrossFade("WallRun", 0.2f);
-    }
+        Debug.Log("Entered WallRun State");
 
-    public override void Update()
-    {
         var scanner = player.GetComponent<EnvironmentScanner>();
         var hit = scanner.ObstacleCheck();
 
@@ -181,18 +204,91 @@ public class WallRunState : PlayerState
             return;
         }
 
-        Vector3 wallNormal = hit.rightHitFound ? hit.rightHit.normal : hit.leftHit.normal;
+        // Evitar iniciar wallrun si estamos en suelo o en cooldown tras un wall-jump
+        if (player.IsGrounded() || !player.CanStartWallRun())
+        {
+            Debug.Log("WallRun blocked at Enter (grounded or cooldown)");
+            player.stateMachine.ChangeState(new FallState(player));
+            return;
+        }
 
-        Vector3 wallForward = Vector3.Cross(wallNormal, Vector3.up);
+        wallRight = hit.rightHitFound;
+        wallLeft = hit.leftHitFound;
+        wallNormal = wallRight ? hit.rightHit.normal : hit.leftHit.normal;
 
+        // calculamos la dirección de avance por la pared
+        wallForward = Vector3.Cross(wallNormal, Vector3.up);
         if (Vector3.Dot(wallForward, player.transform.forward) < 0)
             wallForward = -wallForward;
 
-        player.SetYSpeed(-2f);
+        // iniciar wallrun en el player (guarda normal/forward y ajusta velocidad)
+        player.StartWallRun(wallNormal, wallForward);
+
+        // pequeña corrección posicional para "pegar" al jugador a la pared (evita separaciones)
+        player.CharacterController.Move(-wallNormal * (player.WallRunStickForce * 0.02f));
+
+        // ajustes cámara si existe
+        if (player.CameraController != null)
+            player.CameraController.SetFOVState(false, true);
+    }
+
+    public override void Update()
+    {
+        var scanner = player.GetComponent<EnvironmentScanner>();
+        var hit = scanner.ObstacleCheck();
+
+        // si la pared se pierde, salimos a caer
+        if (!scanner.WallRunCheck(hit) || !player.IsWallRunning())
+        {
+            player.stateMachine.ChangeState(new FallState(player));
+            return;
+        }
+        if(player.IsGrounded())
+        {
+            player.stateMachine.ChangeState(new IdleState(player));
+            return;
+        }
+
+        // actualizar normal/forward por si cambia mientras avanzamos
+        wallRight = hit.rightHitFound;
+        wallLeft = hit.leftHitFound;
+        wallNormal = wallRight ? hit.rightHit.normal : hit.leftHit.normal;
+        wallForward = Vector3.Cross(wallNormal, Vector3.up);
+        if (Vector3.Dot(wallForward, player.transform.forward) < 0)
+            wallForward = -wallForward;
+
+        // empujoncito lateral continuo para pegar al jugador
+        player.CharacterController.Move(-wallNormal * player.WallRunStickForce * Time.deltaTime);
+
+        // fijar/ajustar velocidad vertical objetivo (ApplyGravity lo suaviza)
+        player.SetYSpeed(player.WallRunVerticalSpeed);
+
+        // mover al jugador a lo largo de la pared
         player.Move(wallForward);
 
+        // ajustar tilt de camara
+        if (player.CameraController != null)
+            player.CameraController.SetTilt(wallRight, wallLeft);
+
+        // salto desde la pared
         if (player.JumpPressed())
+        {
+            // aplicamos wall-jump: empuje lateral + vertical
+            player.ApplyWallJump(wallNormal);
             player.stateMachine.ChangeState(new JumpState(player));
+            return;
+        }
+    }
+
+    public override void Exit()
+    {
+        Debug.Log("Exiting WallRun State");
+        player.StopWallRun();
+        if (player.CameraController != null)
+        {
+            player.CameraController.SetFOVState(false, false);
+            player.CameraController.SetTilt(false, false);
+        }
     }
 }
 public class SlideState : PlayerState
