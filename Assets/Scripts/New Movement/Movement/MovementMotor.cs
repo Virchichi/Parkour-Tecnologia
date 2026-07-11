@@ -2,7 +2,12 @@ using UnityEngine;
 
 public class MovementMotor : MonoBehaviour
 {
-    public Vector3 Velocity { get; private set; }
+    private Vector3 _velocity;
+    public Vector3 velocity
+    {
+        get => _velocity;
+        private set => _velocity = value;
+    }
 
     private CharacterController controller;
 
@@ -22,9 +27,9 @@ public class MovementMotor : MonoBehaviour
     {
         Vector3 horizontalVelocity =
             new Vector3(
-                Velocity.x,
+                velocity.x,
                 0,
-                Velocity.z);
+                velocity.z);
 
         Vector3 desiredVelocity =
             desiredDirection * targetSpeed;
@@ -35,15 +40,15 @@ public class MovementMotor : MonoBehaviour
                 desiredVelocity,
                 config.acceleration * Time.deltaTime);
 
-        Velocity = new Vector3(
+        velocity = new Vector3(
             horizontalVelocity.x,
-            Velocity.y,
+            velocity.y,
             horizontalVelocity.z);
     }
 
     public void ApplyGravity()
     {
-        Velocity +=
+        velocity +=
             Vector3.up *
             config.gravity *
             Time.deltaTime;
@@ -51,7 +56,8 @@ public class MovementMotor : MonoBehaviour
 
     public void Jump()
     {
-        Velocity.y = Mathf.Sqrt(
+        _velocity.y =
+            Mathf.Sqrt(
                 config.jumpHeight *
                 -2f *
                 config.gravity);
@@ -59,13 +65,13 @@ public class MovementMotor : MonoBehaviour
 
     public void GroundSnap()
     {
-        if (Velocity.y < 0)
-            Velocity.y = -2f;
+        if (_velocity.y < 0)
+            _velocity.y = -2f;
     }
 
     public void Execute()
     {
         controller.Move(
-            Velocity * Time.deltaTime);
+            velocity * Time.deltaTime);
     }
 }
